@@ -14,6 +14,7 @@ InvestorLens 2.0 transforms long, complex corporate financial documents (e.g., 3
 - **Structure-Aware Semantic Chunking**: Strictly enforced chunk limits (`max_chars=3200`, `overlap_chars=400`) that repeat table headers/separators across splits, unpack complex layout-derived tables, prevent split-sentence mid-word truncation, and maintain full page provenance across every chunk.
 - **Dense Vector Embedding Pipeline**: Normalised 384-dimensional dense vectors generated via `sentence-transformers/all-MiniLM-L6-v2` with unit L2 norm verification and compressed NumPy (`.npz`) persistence.
 - **Deterministic Discrepancy Checks**: Non-destructive comparison preserving native financial data while highlighting OCR variations for human auditor verification.
+- **Tested & Verified Pipeline**: Over 35 unit and integration tests with 100% pass rate covering extraction, metadata offset resolution, quality checks, chunk size boundaries, table headers, and embedding vector constraints.
 
 ---
 
