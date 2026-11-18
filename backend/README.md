@@ -88,3 +88,4 @@ uv run pytest
   ```bash
   uv run python scripts/embed_document.py --pdf data/raw/tcs_annual_report_2025.pdf
   ```
+
