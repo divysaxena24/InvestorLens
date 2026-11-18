@@ -38,6 +38,9 @@ logs/
 data/uploads/
 data/processed/
 data/embeddings/
+backend/data/raw/
+backend/data/processed/
+*.npz
 
 # Temporary files
 tmp/
