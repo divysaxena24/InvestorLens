@@ -1,7 +1,8 @@
 "use client"
 
-import React from "react"
+import React, { Suspense } from "react"
 import { Search, Bell, Menu } from "lucide-react"
+import { SignInButton, SignUpButton, SignOutButton, Show, UserButton } from "@clerk/nextjs"
 
 interface DashboardHeaderProps {
   onToggleSidebar?: () => void
@@ -46,7 +47,7 @@ export function DashboardHeader({ onToggleSidebar }: DashboardHeaderProps) {
         </div>
       </div>
 
-      {/* Right Controls: Notifications & Profile */}
+      {/* Right Controls: Notifications & Profile / Auth */}
       <div className="flex items-center gap-3">
         {/* Notification bell */}
         <button
@@ -58,19 +59,45 @@ export function DashboardHeader({ onToggleSidebar }: DashboardHeaderProps) {
           <span className="absolute right-2 top-2 size-1.5 rounded-full bg-emerald-600" />
         </button>
 
-        {/* User profile */}
+        {/* User auth controls */}
         <div className="flex items-center gap-2.5 pl-2 border-l border-border/70">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border/80 bg-muted/60 text-xs font-semibold text-foreground">
-            DS
-          </div>
-          <div className="hidden flex-col text-left text-xs lg:flex">
-            <span className="font-medium text-foreground leading-tight">
-              Divy Saxena
-            </span>
-            <span className="text-[0.625rem] text-muted-foreground leading-tight">
-              Research Analyst
-            </span>
-          </div>
+          <Suspense fallback={<div className="size-8 rounded-full bg-muted/60 animate-pulse" />}>
+            <Show when="signed-out">
+              <SignInButton mode="modal">
+                <button
+                  type="button"
+                  className="rounded-md border border-border/70 bg-muted/30 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-foreground hover:bg-muted/60"
+                >
+                  Sign In
+                </button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <button
+                  type="button"
+                  className="rounded-md bg-foreground px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-background hover:opacity-90"
+                >
+                  Sign Up
+                </button>
+              </SignUpButton>
+            </Show>
+            <Show when="signed-in">
+              <SignOutButton>
+                <button
+                  type="button"
+                  className="rounded-md border border-border/70 bg-muted/20 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                >
+                  Log Out
+                </button>
+              </SignOutButton>
+              <UserButton
+                appearance={{
+                  elements: {
+                    userButtonAvatarBox: "size-8",
+                  },
+                }}
+              />
+            </Show>
+          </Suspense>
         </div>
       </div>
     </header>
