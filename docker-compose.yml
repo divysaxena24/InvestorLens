@@ -1,4 +1,3 @@
-
 services:
   qdrant:
     image: qdrant/qdrant:latest
@@ -10,5 +9,19 @@ services:
       - qdrant_storage:/qdrant/storage
     restart: unless-stopped
 
+  postgres:
+    image: postgres:17-alpine
+    container_name: investorlens-postgres
+    environment:
+      POSTGRES_DB: investorlens
+      POSTGRES_USER: investorlens
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in root .env}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
 volumes:
   qdrant_storage:
+  postgres_data:
