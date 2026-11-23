@@ -17,10 +17,10 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import sys
 import time
-from typing import Sequence
+from collections.abc import Sequence
+from pathlib import Path
 
 # Ensure backend root is on sys.path
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -31,7 +31,6 @@ import numpy as np
 from app.ingestion.chunker import DocumentChunk, SemanticChunker
 from app.ingestion.embeddings import EmbeddingGenerator
 from app.ingestion.extractor import PDFExtractionPipeline
-from app.ingestion.models import PageExtraction
 
 
 def validate_embeddings(
