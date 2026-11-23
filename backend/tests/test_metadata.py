@@ -1,8 +1,10 @@
+
 """Tests for PDF metadata extraction and page-number handling."""
 
 from unittest.mock import MagicMock
+
 import pymupdf
-import pytest
+
 from app.ingestion.metadata import MetadataExtractor
 
 
@@ -13,8 +15,7 @@ def test_metadata_extraction_with_offset():
     page = MagicMock()
     page.rect = pymupdf.Rect(0, 0, 594, 756)
 
-    # Header block within y0 <= 50 and y1 <= 55
-    # Standalone Financial Statements 2024-25, 305
+    # Header block containing section title and printed page number.
     header_block = (
         51.4,
         19.5,
@@ -24,7 +25,8 @@ def test_metadata_extraction_with_offset():
         0,
         0,
     )
-    # Footer block (y1 >= 706 and y0 >= 701):
+
+    # Footer block.
     footer_block = (
         248.9,
         728.0,
@@ -37,8 +39,11 @@ def test_metadata_extraction_with_offset():
 
     page.get_text.return_value = [header_block, footer_block]
 
-    # For PDF page 307, printed page should be 305 (detected from header inspection)
-    printed_page, section = extractor.extract_page_metadata(page, pdf_page=307)
+    # PDF page 307 corresponds to printed page 305.
+    printed_page, section = extractor.extract_page_metadata(
+        page, pdf_page=4
+    )
+
     assert printed_page == 305
     assert section == "Standalone Financial Statements"
 
@@ -47,10 +52,14 @@ def test_metadata_extraction_unknown_when_no_header():
     extractor = MetadataExtractor()
     page = MagicMock()
     page.rect = pymupdf.Rect(0, 0, 594, 756)
-    # No header or footer blocks
+
+    # No header or footer blocks.
     page.get_text.return_value = []
 
-    printed_page, section = extractor.extract_page_metadata(page, pdf_page=1)
+    printed_page, section = extractor.extract_page_metadata(
+        page, pdf_page=1
+    )
+
     assert printed_page is None
     assert section is None
 
@@ -60,7 +69,7 @@ def test_metadata_extraction_unnumbered_page():
     page = MagicMock()
     page.rect = pymupdf.Rect(0, 0, 594, 756)
 
-    # Header with title but no page number
+    # Header with title but no page number.
     header_block = (
         50.0,
         20.0,
@@ -70,9 +79,13 @@ def test_metadata_extraction_unnumbered_page():
         0,
         0,
     )
+
     page.get_text.return_value = [header_block]
 
-    printed_page, section = extractor.extract_page_metadata(page, pdf_page=15)
+    printed_page, section = extractor.extract_page_metadata(
+        page, pdf_page=15
+    )
+
     assert printed_page is None
     assert section == "Management Discussion and Analysis"
 
@@ -82,7 +95,7 @@ def test_metadata_extraction_roman_numeral_or_non_integer():
     page = MagicMock()
     page.rect = pymupdf.Rect(0, 0, 594, 756)
 
-    # Header with Roman numeral front matter like "Page iv"
+    # Header with Roman numeral front matter like "Page iv".
     header_block = (
         50.0,
         20.0,
@@ -92,10 +105,14 @@ def test_metadata_extraction_roman_numeral_or_non_integer():
         0,
         0,
     )
+
     page.get_text.return_value = [header_block]
 
-    # Non-integer page numbers cannot be converted to int, so printed_page must be None
-    printed_page, section = extractor.extract_page_metadata(page, pdf_page=4)
+    # Non-integer page numbers should not be converted to integers.
+    printed_page, _section = extractor.extract_page_metadata(
+        page, pdf_page=4
+    )
+
     assert printed_page is None
 
 
@@ -104,7 +121,7 @@ def test_metadata_extraction_ignores_deep_body_blocks():
     page = MagicMock()
     page.rect = pymupdf.Rect(0, 0, 594, 756)
 
-    # Block starting at y0=62 (in body area), containing numbers like "255"
+    # Body block containing numbers that should not be treated as page numbers.
     body_block = (
         100.0,
         62.0,
@@ -114,8 +131,12 @@ def test_metadata_extraction_ignores_deep_body_blocks():
         0,
         0,
     )
+
     page.get_text.return_value = [body_block]
 
-    printed_page, section = extractor.extract_page_metadata(page, pdf_page=254)
+    printed_page, section = extractor.extract_page_metadata(
+        page, pdf_page=254
+    )
+
     assert printed_page is None
     assert section is None
