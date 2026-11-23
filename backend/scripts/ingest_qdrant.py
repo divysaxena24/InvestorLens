@@ -31,7 +31,7 @@ def load_artifacts():
         vectors = archive["vectors"].copy()
 
     if not isinstance(chunks, list):
-        raise ValueError("Chunks JSON must contain a list")
+        raise TypeError("Chunks JSON must contain a list")
 
     if vectors.shape != (len(chunks), VECTOR_SIZE):
         raise ValueError(
