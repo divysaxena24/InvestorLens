@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import difflib
 import re
-from typing import Optional
 
 from app.ingestion.models import PageComparison, PageExtraction
 
