@@ -7,8 +7,9 @@ and supports selective OCR evaluation without modifying the original PDF or forc
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Callable, Optional, Sequence
+
 import pymupdf
 import pymupdf4llm
 
@@ -26,8 +27,8 @@ class PDFExtractionPipeline:
 
     def __init__(
         self,
-        quality_checker: Optional[ExtractionQualityChecker] = None,
-        metadata_extractor: Optional[MetadataExtractor] = None,
+        quality_checker: ExtractionQualityChecker | None = None,
+        metadata_extractor: MetadataExtractor | None = None,
     ) -> None:
         self.quality_checker = quality_checker or ExtractionQualityChecker()
         self.metadata_extractor = metadata_extractor or MetadataExtractor()
@@ -35,8 +36,8 @@ class PDFExtractionPipeline:
     def extract_native(
         self,
         pdf_path: Path,
-        pages: Optional[Sequence[int]] = None,
-        progress_callback: Optional[Callable[[int, int], None]] = None,
+        pages: Sequence[int] | None = None,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> list[PageExtraction]:
         """Extracts pages using native extraction (pymupdf4llm).
 
