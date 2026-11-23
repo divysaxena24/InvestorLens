@@ -2,10 +2,11 @@
 
 import csv
 from pathlib import Path
+
 import pymupdf
 import pytest
+
 from app.ingestion.extractor import PDFExtractionPipeline
-from app.ingestion.models import PageExtraction
 
 
 @pytest.fixture
