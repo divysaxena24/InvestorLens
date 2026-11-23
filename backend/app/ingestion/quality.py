@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import NamedTuple
+from typing import ClassVar, NamedTuple
 
 
 class QualityCheckResult(NamedTuple):
@@ -24,7 +24,7 @@ class ExtractionQualityChecker:
     GREEK_DIGIT_SUBSTITUTIONS = re.compile(r"[\u0370-\u03FF]")
 
     # Common mojibake / encoding corruption artifacts
-    ENCODING_CORRUPTIONS = [
+    ENCODING_CORRUPTIONS: ClassVar[list[str]] = [
         "â€™",
         "â€œ",
         "â€",
