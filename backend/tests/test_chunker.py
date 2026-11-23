@@ -1,4 +1,4 @@
-from app.ingestion.chunker import DocumentChunk, SemanticChunker
+from app.ingestion.chunker import SemanticChunker
 from app.ingestion.models import PageExtraction
 
 
