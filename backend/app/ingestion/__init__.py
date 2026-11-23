@@ -8,13 +8,13 @@ from app.ingestion.quality import ExtractionQualityChecker, QualityCheckResult
 from app.ingestion.report import generate_quality_report
 
 __all__ = [
-    "PDFExtractionPipeline",
     "ExtractionQualityChecker",
-    "QualityCheckResult",
     "MetadataExtractor",
-    "PageExtraction",
-    "QualityReportRow",
+    "PDFExtractionPipeline",
     "PageComparison",
+    "PageExtraction",
+    "QualityCheckResult",
+    "QualityReportRow",
     "compare_extractions",
     "generate_quality_report",
 ]
