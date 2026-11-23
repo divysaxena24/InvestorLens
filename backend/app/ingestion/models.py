@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
@@ -11,8 +11,8 @@ class PageExtraction:
     """Represents the extracted content and metadata of a single PDF page."""
 
     pdf_page: int  # 1-based PDF page index
-    printed_page: Optional[int] = None  # Printed report page number if reliably identified
-    section: Optional[str] = None  # Document section name if identified
+    printed_page: int | None = None  # Printed report page number if reliably identified
+    section: str | None = None  # Document section name if identified
     text: str = ""  # Extracted Markdown text
     extraction_method: str = "native"  # "native" or "ocr"
     review_required: bool = False
@@ -31,8 +31,8 @@ class QualityReportRow:
     """Represents a row in the extraction quality CSV report."""
 
     pdf_page: int
-    printed_page: Optional[int]
-    section: Optional[str]
+    printed_page: int | None
+    section: str | None
     extraction_method: str
     characters: int
     review_required: bool
