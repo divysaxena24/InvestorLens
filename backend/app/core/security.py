@@ -1,10 +1,9 @@
 import jwt
+from fastapi import HTTPException, status
 from jwt import PyJWKClient
 from jwt.exceptions import PyJWKClientError, PyJWTError
-from fastapi import HTTPException, status
 
 from app.core.config import settings
-
 
 # Clerk's public JSON Web Key Set endpoint
 JWKS_URL = f"{settings.CLERK_ISSUER.rstrip('/')}/.well-known/jwks.json"
