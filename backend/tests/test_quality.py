@@ -1,6 +1,7 @@
 """Tests for PDF extraction quality checker."""
 
 import pytest
+
 from app.ingestion.quality import ExtractionQualityChecker
 
 
