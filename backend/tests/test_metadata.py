@@ -41,7 +41,7 @@ def test_metadata_extraction_with_offset():
 
     # PDF page 307 corresponds to printed page 305.
     printed_page, section = extractor.extract_page_metadata(
-        page, pdf_page=4
+        page, pdf_page=307
     )
 
     assert printed_page == 305
@@ -110,9 +110,8 @@ def test_metadata_extraction_roman_numeral_or_non_integer():
 
     # Non-integer page numbers should not be converted to integers.
     printed_page, _section = extractor.extract_page_metadata(
-        page, pdf_page=4
+        page, pdf_page=307
     )
-
     assert printed_page is None
 
 
