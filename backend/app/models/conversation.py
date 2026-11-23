@@ -10,9 +10,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.database import Base
 
 if TYPE_CHECKING:
-    from app.models.user import User
     from app.models.document import Document
     from app.models.message import Message
+    from app.models.user import User
 
 
 class Conversation(Base):
