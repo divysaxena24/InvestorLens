@@ -45,3 +45,7 @@ backend/data/processed/
 # Temporary files
 tmp/
 temp/
+
+# Uploaded user documents — never commit
+backend/storage/uploads/*
+!backend/storage/uploads/.gitkeep
