@@ -15,6 +15,7 @@ dependencies = [
     "pyjwt[crypto]>=2.15.1",
     "pymupdf4llm>=2.1",
     "python-dotenv>=1.2.4",
+    "python-multipart>=0.0.34",
     "qdrant-client>=1.20.0",
     "rapidocr-onnxruntime>=1.4.4",
     "sentence-transformers>=6.3.0",
