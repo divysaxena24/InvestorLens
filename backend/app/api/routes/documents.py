@@ -4,6 +4,7 @@ from uuid import UUID
 
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     File,
     HTTPException,
@@ -19,6 +20,7 @@ from app.db.database import get_db
 from app.models.document import Document
 from app.models.user import User
 from app.schemas.document import DocumentResponse
+from app.services.document_processor import process_document
 from app.services.file_storage import delete_pdf, save_pdf
 
 logger = logging.getLogger(__name__)
@@ -32,6 +34,7 @@ router = APIRouter(prefix="/documents", tags=["Documents"])
     status_code=status.HTTP_201_CREATED,
 )
 def upload_document(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -51,6 +54,12 @@ def upload_document(
         db.add(document)
         db.commit()
         db.refresh(document)
+
+        background_tasks.add_task(
+            process_document,
+            str(document.id),
+            document.storage_key,
+        )
 
         return document
 
@@ -112,9 +121,11 @@ def remove_document(
     try:
         db.delete(document)
         db.commit()
+
     except Exception:
         db.rollback()
         logger.exception("Document deletion failed")
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not delete document",
@@ -122,8 +133,8 @@ def remove_document(
 
     try:
         delete_pdf(storage_key)
+
     except OSError:
         logger.exception(
             "Document record deleted, but stored PDF cleanup failed"
         )
-
