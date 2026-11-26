@@ -1,4 +1,5 @@
 
+from threading import Event, Thread
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -247,3 +248,49 @@ def test_delete_processed_artifacts_handles_missing_directory(
     document_processor.delete_processed_artifacts(document_id)
 
     assert not (tmp_path / document_id).exists()
+
+def test_process_document_waits_for_deletion_lock(
+    monkeypatch,
+):
+    document_id = str(uuid4())
+    storage_key = "test-report.pdf"
+
+    lock = document_processor.get_document_lock(document_id)
+
+    attempted = Event()
+    finished = Event()
+    calls = []
+
+    def fake_process(document_id, storage_key):
+        calls.append((document_id, storage_key))
+
+    monkeypatch.setattr(
+        document_processor,
+        "_process_document",
+        fake_process,
+    )
+
+    def worker():
+        attempted.set()
+        document_processor.process_document(
+            document_id,
+            storage_key,
+        )
+        finished.set()
+
+    with lock:
+        thread = Thread(target=worker)
+        thread.start()
+
+        assert attempted.wait(timeout=2)
+
+        # Processing must wait while deletion owns the lock.
+        assert not finished.wait(timeout=0.2)
+
+    # Once deletion releases the lock, processing can continue.
+    assert finished.wait(timeout=2)
+
+    thread.join(timeout=2)
+
+    assert not thread.is_alive()
+    assert calls == [(document_id, storage_key)]
