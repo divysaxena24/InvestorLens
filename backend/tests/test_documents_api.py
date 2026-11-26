@@ -124,27 +124,40 @@ def test_user_cannot_access_another_users_document(
     assert response.json()["detail"] == "Document not found"
 
 
+
 def test_delete_document_success(
     client,
     db_session,
     test_user,
     monkeypatch,
+    tmp_path,
 ):
     document = create_document(db_session, test_user.id)
+    document_id = document.id
     storage_key = document.storage_key
 
-    delete_mock = Mock()
+    delete_pdf_mock = Mock()
+    delete_artifacts_mock = Mock()
+
     monkeypatch.setattr(
         "app.api.routes.documents.delete_pdf",
-        delete_mock,
+        delete_pdf_mock,
+    )
+    monkeypatch.setattr(
+        "app.api.routes.documents.delete_processed_artifacts",
+        delete_artifacts_mock,
     )
 
-    response = client.delete(f"{BASE_URL}/{document.id}")
+    response = client.delete(f"{BASE_URL}/{document_id}")
 
     assert response.status_code == 204
     assert response.content == b""
-    assert db_session.get(Document, document.id) is None
-    delete_mock.assert_called_once_with(storage_key)
+
+    assert db_session.get(Document, document_id) is None
+
+    delete_pdf_mock.assert_called_once_with(storage_key)
+    delete_artifacts_mock.assert_called_once_with(str(document_id))
+
 
 
 def test_user_cannot_delete_another_users_document(
