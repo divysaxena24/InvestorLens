@@ -2,6 +2,7 @@
 """Background processing for uploaded financial documents."""
 
 import logging
+import shutil
 from uuid import UUID
 
 from sqlalchemy import select
@@ -102,3 +103,18 @@ def process_document(document_id: str, storage_key: str) -> None:
 
     finally:
         db.close()
+
+
+def delete_processed_artifacts(document_id: str) -> None:
+    """Delete all generated files for a document."""
+
+    safe_document_id = str(UUID(document_id))
+    output_dir = PROCESSED_DIR / safe_document_id
+
+    if output_dir.is_dir():
+        shutil.rmtree(output_dir)
+
+    logger.info(
+        "Processed artifacts deleted for document %s",
+        safe_document_id,
+    )
