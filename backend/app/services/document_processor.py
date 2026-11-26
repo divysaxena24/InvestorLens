@@ -3,6 +3,7 @@
 
 import logging
 import shutil
+from threading import RLock
 from uuid import UUID
 
 from sqlalchemy import select
@@ -16,9 +17,34 @@ logger = logging.getLogger(__name__)
 
 PROCESSED_DIR = BACKEND_DIR / "storage" / "processed"
 
+# Per-document locks coordinate processing and deletion within this process.
+_lock_registry_guard = RLock()
+_document_locks: dict[str, RLock] = {}
+
+
+def get_document_lock(document_id: str) -> RLock:
+    """Return the shared lock for a document."""
+
+    safe_document_id = str(UUID(document_id))
+
+    with _lock_registry_guard:
+        if safe_document_id not in _document_locks:
+            _document_locks[safe_document_id] = RLock()
+
+        return _document_locks[safe_document_id]
+
 
 def process_document(document_id: str, storage_key: str) -> None:
-    """Extract an uploaded PDF and save its Markdown and quality report."""
+    """Extract an uploaded PDF while holding its document lock."""
+
+    safe_document_id = str(UUID(document_id))
+
+    with get_document_lock(safe_document_id):
+        _process_document(safe_document_id, storage_key)
+
+
+def _process_document(document_id: str, storage_key: str) -> None:
+    """Perform PDF extraction and persist processing results."""
 
     db = SessionLocal()
 
@@ -27,9 +53,11 @@ def process_document(document_id: str, storage_key: str) -> None:
             select(Document).where(Document.id == UUID(document_id))
         )
 
-        # The user may have deleted the document before processing started.
         if document is None:
-            logger.warning("Document %s no longer exists", document_id)
+            logger.warning(
+                "Document %s no longer exists; skipping processing",
+                document_id,
+            )
             return
 
         document.status = "processing"
@@ -38,7 +66,9 @@ def process_document(document_id: str, storage_key: str) -> None:
         pdf_path = UPLOAD_DIR / storage_key
 
         if not pdf_path.is_file():
-            raise FileNotFoundError(f"Uploaded PDF not found: {storage_key}")
+            raise FileNotFoundError(
+                f"Uploaded PDF not found: {storage_key}"
+            )
 
         output_dir = PROCESSED_DIR / document_id
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -109,12 +139,14 @@ def delete_processed_artifacts(document_id: str) -> None:
     """Delete all generated files for a document."""
 
     safe_document_id = str(UUID(document_id))
-    output_dir = PROCESSED_DIR / safe_document_id
 
-    if output_dir.is_dir():
-        shutil.rmtree(output_dir)
+    with get_document_lock(safe_document_id):
+        output_dir = PROCESSED_DIR / safe_document_id
 
-    logger.info(
-        "Processed artifacts deleted for document %s",
-        safe_document_id,
-    )
+        if output_dir.is_dir():
+            shutil.rmtree(output_dir)
+
+        logger.info(
+            "Processed artifacts deleted for document %s",
+            safe_document_id,
+        )
