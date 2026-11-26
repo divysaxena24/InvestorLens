@@ -20,7 +20,10 @@ from app.db.database import get_db
 from app.models.document import Document
 from app.models.user import User
 from app.schemas.document import DocumentResponse
-from app.services.document_processor import process_document
+from app.services.document_processor import (
+    delete_processed_artifacts,
+    process_document,
+)
 from app.services.file_storage import delete_pdf, save_pdf
 
 logger = logging.getLogger(__name__)
@@ -131,10 +134,19 @@ def remove_document(
             detail="Could not delete document",
         )
 
+    # Database deletion succeeds independently of filesystem cleanup.
     try:
         delete_pdf(storage_key)
-
     except OSError:
         logger.exception(
-            "Document record deleted, but stored PDF cleanup failed"
+            "Document record deleted, but uploaded PDF cleanup failed: %s",
+            document_id,
+        )
+
+    try:
+        delete_processed_artifacts(str(document_id))
+    except (OSError, ValueError):
+        logger.exception(
+            "Document record deleted, but processed artifact cleanup failed: %s",
+            document_id,
         )
