@@ -1,4 +1,3 @@
-
 import logging
 from uuid import UUID
 
@@ -22,6 +21,7 @@ from app.models.user import User
 from app.schemas.document import DocumentResponse
 from app.services.document_processor import (
     delete_processed_artifacts,
+    get_document_lock,
     process_document,
 )
 from app.services.file_storage import delete_pdf, save_pdf
@@ -109,6 +109,7 @@ def get_document(
     return get_owned_document(document_id, current_user, db)
 
 
+
 @router.delete(
     "/{document_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -118,35 +119,35 @@ def remove_document(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    document = get_owned_document(document_id, current_user, db)
-    storage_key = document.storage_key
+    with get_document_lock(str(document_id)):
+        document = get_owned_document(document_id, current_user, db)
+        storage_key = document.storage_key
 
-    try:
-        db.delete(document)
-        db.commit()
+        try:
+            db.delete(document)
+            db.commit()
 
-    except Exception:
-        db.rollback()
-        logger.exception("Document deletion failed")
+        except Exception:
+            db.rollback()
+            logger.exception("Document deletion failed")
 
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Could not delete document",
-        )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Could not delete document",
+            )
 
-    # Database deletion succeeds independently of filesystem cleanup.
-    try:
-        delete_pdf(storage_key)
-    except OSError:
-        logger.exception(
-            "Document record deleted, but uploaded PDF cleanup failed: %s",
-            document_id,
-        )
+        try:
+            delete_pdf(storage_key)
+        except OSError:
+            logger.exception(
+                "Document record deleted, but uploaded PDF cleanup failed: %s",
+                document_id,
+            )
 
-    try:
-        delete_processed_artifacts(str(document_id))
-    except (OSError, ValueError):
-        logger.exception(
-            "Document record deleted, but processed artifact cleanup failed: %s",
-            document_id,
-        )
+        try:
+            delete_processed_artifacts(str(document_id))
+        except (OSError, ValueError):
+            logger.exception(
+                "Document record deleted, but processed artifact cleanup failed: %s",
+                document_id,
+            )
