@@ -199,3 +199,51 @@ def test_process_document_missing_database_record(
         str(uuid4()),
         "missing.pdf",
     )
+
+
+
+def test_delete_processed_artifacts_removes_directory(
+    monkeypatch,
+    tmp_path,
+):
+    document_id = str(uuid4())
+    processed_dir = tmp_path / document_id
+    processed_dir.mkdir()
+
+    (processed_dir / "extracted.md").write_text(
+        "# Financial report",
+        encoding="utf-8",
+    )
+    (processed_dir / "quality_report.csv").write_text(
+        "page,quality\n1,passed",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        document_processor,
+        "PROCESSED_DIR",
+        tmp_path,
+    )
+
+    document_processor.delete_processed_artifacts(document_id)
+
+    assert not processed_dir.exists()
+
+
+def test_delete_processed_artifacts_handles_missing_directory(
+    monkeypatch,
+    tmp_path,
+):
+    document_id = str(uuid4())
+
+    monkeypatch.setattr(
+        document_processor,
+        "PROCESSED_DIR",
+        tmp_path,
+    )
+
+    # Repeated cleanup should be safe.
+    document_processor.delete_processed_artifacts(document_id)
+    document_processor.delete_processed_artifacts(document_id)
+
+    assert not (tmp_path / document_id).exists()
