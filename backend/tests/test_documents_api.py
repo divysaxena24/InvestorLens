@@ -26,11 +26,18 @@ def create_document(db_session, user_id, storage_key="test-report.pdf"):
     return document
 
 
+
 def test_upload_document_success(client, monkeypatch):
     save_mock = Mock(return_value=("uploaded-test.pdf", 2048))
+    processor_mock = Mock()
+
     monkeypatch.setattr(
         "app.api.routes.documents.save_pdf",
         save_mock,
+    )
+    monkeypatch.setattr(
+        "app.api.routes.documents.process_document",
+        processor_mock,
     )
 
     response = client.post(
@@ -45,12 +52,20 @@ def test_upload_document_success(client, monkeypatch):
     )
 
     assert response.status_code == 201
+
     data = response.json()
+
     assert data["filename"] == "annual-report.pdf"
     assert data["mime_type"] == "application/pdf"
     assert data["file_size_bytes"] == 2048
     assert data["status"] == "uploaded"
+
     save_mock.assert_called_once()
+    processor_mock.assert_called_once_with(
+        data["id"],
+        "uploaded-test.pdf",
+    )
+
 
 
 def test_list_documents_returns_only_current_users_documents(
