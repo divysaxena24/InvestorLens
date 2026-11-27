@@ -28,7 +28,11 @@ sys.path.insert(0, str(BASE_DIR))
 
 import numpy as np
 
-from app.ingestion.chunker import DocumentChunk, SemanticChunker
+from app.ingestion.artifacts import (
+    save_embeddings_and_metadata,
+    validate_embeddings,
+)
+from app.ingestion.chunker import SemanticChunker
 from app.ingestion.embeddings import EmbeddingGenerator
 from app.ingestion.extractor import PDFExtractionPipeline
 
