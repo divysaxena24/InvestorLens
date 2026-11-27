@@ -1,3 +1,6 @@
+import numpy as np
+
+from app.ingestion.chunker import DocumentChunk
 
 from threading import Event, Thread
 from types import SimpleNamespace
@@ -49,6 +52,35 @@ def create_test_document(db_session, storage_key="test-report.pdf"):
 
     return document
 
+
+class FakeChunker:
+    def chunk_pages(self, pages, document_id):
+        return [
+            DocumentChunk(
+                chunk_id=f"{document_id}_chunk_1",
+                document_id=document_id,
+                content="This is a test financial report.",
+                page_start=1,
+                page_end=1,
+                printed_page=None,
+                section="Financial Overview",
+                content_type="text",
+                extraction_method="native",
+                review_required=False,
+                quality_flags=[],
+            )
+        ]
+
+
+class FakeEmbeddingGenerator:
+    def generate(self, texts):
+        assert len(texts) == 1
+
+        # A normalized 384-dimensional test vector.
+        vector = np.zeros(384, dtype=np.float32)
+        vector[0] = 1.0
+
+        return [vector.tolist()]
 
 def test_process_document_success(
     processor_db,
