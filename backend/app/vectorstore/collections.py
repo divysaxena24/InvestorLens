@@ -30,7 +30,9 @@ def create_collection(client: QdrantClient) -> None:
     vector_config = info.config.params.vectors
 
     if not isinstance(vector_config, models.VectorParams):
-        raise ValueError("Expected a single unnamed vector configuration.")
+        raise TypeError(
+            "Expected a single unnamed vector configuration."
+        )
 
     if vector_config.size != VECTOR_SIZE:
         raise ValueError(
