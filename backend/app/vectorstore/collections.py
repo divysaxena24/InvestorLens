@@ -1,41 +1,55 @@
 
-"""Qdrant collection setup for InvestorLens."""
-
 from qdrant_client import QdrantClient, models
 
-COLLECTION_NAME = "investorlens_chunks"
+from app.core.config import settings
+
+COLLECTION_NAME = settings.QDRANT_COLLECTION
 VECTOR_SIZE = 384
 
 
 def create_collection(client: QdrantClient) -> None:
-    """Create the chunks collection if it does not already exist."""
+    """Create the collection if missing; otherwise validate its configuration."""
 
     existing = {
         collection.name
         for collection in client.get_collections().collections
     }
 
-    if COLLECTION_NAME in existing:
-        print(f"Collection already exists: {COLLECTION_NAME}")
+    if COLLECTION_NAME not in existing:
+        client.create_collection(
+            collection_name=COLLECTION_NAME,
+            vectors_config=models.VectorParams(
+                size=VECTOR_SIZE,
+                distance=models.Distance.COSINE,
+            ),
+        )
+        print(f"Collection created: {COLLECTION_NAME}")
         return
 
-    client.create_collection(
-        collection_name=COLLECTION_NAME,
-        vectors_config=models.VectorParams(
-            size=VECTOR_SIZE,
-            distance=models.Distance.COSINE,
-        ),
-    )
+    info = client.get_collection(COLLECTION_NAME)
+    vector_config = info.config.params.vectors
 
-    print(f"Collection created: {COLLECTION_NAME}")
+    if not isinstance(vector_config, models.VectorParams):
+        raise ValueError("Expected a single unnamed vector configuration.")
+
+    if vector_config.size != VECTOR_SIZE:
+        raise ValueError(
+            f"Expected {VECTOR_SIZE} dimensions, got {vector_config.size}."
+        )
+
+    if vector_config.distance != models.Distance.COSINE:
+        raise ValueError("Collection must use Cosine distance.")
+
+    print(f"Collection validated: {COLLECTION_NAME}")
 
 
 def main() -> None:
-    client = QdrantClient(url="http://localhost:6333")
+    from app.vectorstore.client import get_qdrant_client
+
+    client = get_qdrant_client()
 
     try:
         create_collection(client)
-
         info = client.get_collection(COLLECTION_NAME)
         print("Vector size:", info.config.params.vectors.size)
         print("Distance:", info.config.params.vectors.distance)
