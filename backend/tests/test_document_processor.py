@@ -1,14 +1,13 @@
-import numpy as np
-
-from app.ingestion.chunker import DocumentChunk
-
+import json
 from threading import Event, Thread
 from types import SimpleNamespace
 from uuid import uuid4
 
+import numpy as np
 import pytest
 from sqlalchemy.orm import Session
 
+from app.ingestion.chunker import DocumentChunk
 from app.models.document import Document
 from app.services import document_processor
 
@@ -25,16 +24,8 @@ def processor_db(db_session, monkeypatch):
 
 
 def create_test_document(db_session, storage_key="test-report.pdf"):
-    document = Document(
-        user_id=uuid4(),
-        filename="annual-report.pdf",
-        storage_key=storage_key,
-        mime_type="application/pdf",
-        file_size_bytes=1024,
-        status="uploaded",
-    )
+    """Create a document with its required user."""
 
-    # Create a real user because Document.user_id has a foreign key.
     from app.models.user import User
 
     user = User(
@@ -42,10 +33,19 @@ def create_test_document(db_session, storage_key="test-report.pdf"):
         email=f"{uuid4()}@example.com",
         full_name="Processor Test User",
     )
+
     db_session.add(user)
     db_session.flush()
 
-    document.user_id = user.id
+    document = Document(
+        user_id=user.id,
+        filename="annual-report.pdf",
+        storage_key=storage_key,
+        mime_type="application/pdf",
+        file_size_bytes=1024,
+        status="uploaded",
+    )
+
     db_session.add(document)
     db_session.commit()
     db_session.refresh(document)
@@ -54,6 +54,8 @@ def create_test_document(db_session, storage_key="test-report.pdf"):
 
 
 class FakeChunker:
+    """Generate a realistic chunk without running the actual chunker."""
+
     def chunk_pages(self, pages, document_id):
         return [
             DocumentChunk(
@@ -73,14 +75,16 @@ class FakeChunker:
 
 
 class FakeEmbeddingGenerator:
+    """Generate a normalized 384-dimensional test embedding."""
+
     def generate(self, texts):
         assert len(texts) == 1
 
-        # A normalized 384-dimensional test vector.
         vector = np.zeros(384, dtype=np.float32)
         vector[0] = 1.0
 
         return [vector.tolist()]
+
 
 def test_process_document_success(
     processor_db,
@@ -134,6 +138,16 @@ def test_process_document_success(
         "PDFExtractionPipeline",
         FakePipeline,
     )
+    monkeypatch.setattr(
+        document_processor,
+        "SemanticChunker",
+        FakeChunker,
+    )
+    monkeypatch.setattr(
+        document_processor,
+        "EmbeddingGenerator",
+        FakeEmbeddingGenerator,
+    )
 
     document_processor.process_document(
         str(document.id),
@@ -145,9 +159,30 @@ def test_process_document_success(
 
     output_dir = processed_dir / str(document.id)
 
+    # Verify processing status.
     assert updated_document.status == "processed"
+
+    # Verify extraction artifacts.
     assert (output_dir / "extracted.md").is_file()
     assert (output_dir / "quality_report.csv").is_file()
+
+    # Verify embedding artifacts.
+    vectors_path = output_dir / "document_vectors.npz"
+    chunks_path = output_dir / "document_chunks.json"
+
+    assert vectors_path.is_file()
+    assert chunks_path.is_file()
+
+    # Verify embedding dimensions.
+    saved_vectors = np.load(vectors_path)["vectors"]
+    assert saved_vectors.shape == (1, 384)
+
+    # Verify chunk metadata.
+    saved_chunks = json.loads(chunks_path.read_text(encoding="utf-8"))
+
+    assert len(saved_chunks) == 1
+    assert saved_chunks[0]["content"] == ("This is a test financial report.")
+    assert saved_chunks[0]["document_id"] == str(document.id)
 
 
 def test_process_document_failure_marks_document_failed(
@@ -195,6 +230,84 @@ def test_process_document_failure_marks_document_failed(
     assert updated_document.status == "failed"
 
 
+def test_process_document_embedding_validation_failure(
+    processor_db,
+    monkeypatch,
+    tmp_path,
+):
+    document = create_test_document(processor_db)
+
+    upload_dir = tmp_path / "uploads"
+    processed_dir = tmp_path / "processed"
+
+    upload_dir.mkdir()
+    (upload_dir / document.storage_key).write_bytes(b"%PDF-test")
+
+    monkeypatch.setattr(
+        document_processor,
+        "UPLOAD_DIR",
+        upload_dir,
+    )
+    monkeypatch.setattr(
+        document_processor,
+        "PROCESSED_DIR",
+        processed_dir,
+    )
+
+    class FakePipeline:
+        def extract_native(self, pdf_path, progress_callback=None):
+            return [SimpleNamespace(pdf_page=1)]
+
+        def save_markdown(self, pages, output_path):
+            output_path.write_text(
+                "# Extracted report",
+                encoding="utf-8",
+            )
+            return output_path
+
+        def save_quality_report(self, pages, output_path):
+            output_path.write_text(
+                "page,quality\n1,passed",
+                encoding="utf-8",
+            )
+            return output_path
+
+    class InvalidEmbeddingGenerator:
+        def generate(self, texts):
+            # Wrong dimension: expected 384.
+            return [[0.1, 0.2, 0.3]]
+
+    monkeypatch.setattr(
+        document_processor,
+        "PDFExtractionPipeline",
+        FakePipeline,
+    )
+    monkeypatch.setattr(
+        document_processor,
+        "SemanticChunker",
+        FakeChunker,
+    )
+    monkeypatch.setattr(
+        document_processor,
+        "EmbeddingGenerator",
+        InvalidEmbeddingGenerator,
+    )
+
+    document_processor.process_document(
+        str(document.id),
+        document.storage_key,
+    )
+
+    processor_db.expire_all()
+    updated_document = processor_db.get(Document, document.id)
+
+    output_dir = processed_dir / str(document.id)
+
+    assert updated_document.status == "failed"
+    assert not (output_dir / "document_vectors.npz").exists()
+    assert not (output_dir / "document_chunks.json").exists()
+
+
 def test_process_document_missing_pdf_marks_document_failed(
     processor_db,
     monkeypatch,
@@ -224,15 +337,13 @@ def test_process_document_missing_pdf_marks_document_failed(
     assert updated_document.status == "failed"
 
 
-def test_process_document_missing_database_record(
-    processor_db,
-):
-    # Should exit safely without attempting PDF extraction.
+def test_process_document_missing_database_record(processor_db):
+    """Missing database records should exit safely."""
+
     document_processor.process_document(
         str(uuid4()),
         "missing.pdf",
     )
-
 
 
 def test_delete_processed_artifacts_removes_directory(
@@ -281,9 +392,8 @@ def test_delete_processed_artifacts_handles_missing_directory(
 
     assert not (tmp_path / document_id).exists()
 
-def test_process_document_waits_for_deletion_lock(
-    monkeypatch,
-):
+
+def test_process_document_waits_for_deletion_lock(monkeypatch):
     document_id = str(uuid4())
     storage_key = "test-report.pdf"
 
