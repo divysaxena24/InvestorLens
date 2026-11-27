@@ -1,3 +1,4 @@
+
 import json
 from threading import Event, Thread
 from types import SimpleNamespace
@@ -149,6 +150,29 @@ def test_process_document_success(
         FakeEmbeddingGenerator,
     )
 
+    # Mock Qdrant so the test does not require a running server.
+    qdrant_calls = []
+    client_closed = []
+
+    class FakeQdrantClient:
+        def close(self):
+            client_closed.append(True)
+
+    def fake_upsert(**kwargs):
+        qdrant_calls.append(kwargs)
+        return len(kwargs["chunks"])
+
+    monkeypatch.setattr(
+        document_processor,
+        "get_qdrant_client",
+        lambda: FakeQdrantClient(),
+    )
+    monkeypatch.setattr(
+        document_processor,
+        "upsert_document_chunks",
+        fake_upsert,
+    )
+
     document_processor.process_document(
         str(document.id),
         document.storage_key,
@@ -178,11 +202,28 @@ def test_process_document_success(
     assert saved_vectors.shape == (1, 384)
 
     # Verify chunk metadata.
-    saved_chunks = json.loads(chunks_path.read_text(encoding="utf-8"))
+    saved_chunks = json.loads(
+        chunks_path.read_text(encoding="utf-8")
+    )
 
     assert len(saved_chunks) == 1
-    assert saved_chunks[0]["content"] == ("This is a test financial report.")
+    assert saved_chunks[0]["content"] == (
+        "This is a test financial report."
+    )
     assert saved_chunks[0]["document_id"] == str(document.id)
+
+    # Verify Qdrant indexing.
+    assert len(qdrant_calls) == 1
+
+    qdrant_call = qdrant_calls[0]
+
+    assert qdrant_call["document_id"] == str(document.id)
+    assert qdrant_call["user_id"] == str(document.user_id)
+    assert len(qdrant_call["chunks"]) == 1
+    assert qdrant_call["vectors"].shape == (1, 384)
+
+    # Verify client cleanup.
+    assert client_closed == [True]
 
 
 def test_process_document_failure_marks_document_failed(
