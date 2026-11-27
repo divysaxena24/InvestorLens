@@ -19,6 +19,8 @@ from app.ingestion.embeddings import EmbeddingGenerator
 from app.ingestion.extractor import PDFExtractionPipeline
 from app.models.document import Document
 from app.services.file_storage import BACKEND_DIR, UPLOAD_DIR
+from app.vectorstore.client import get_qdrant_client
+from app.vectorstore.ingestion import upsert_document_chunks
 
 logger = logging.getLogger(__name__)
 
@@ -169,6 +171,26 @@ def _process_document(
             vectors=vectors,
             output_dir=output_dir,
             stem="document",
+        )
+
+	        # Stage 6: Index document chunks in Qdrant.
+        qdrant_client = get_qdrant_client()
+
+        try:
+            indexed_count = upsert_document_chunks(
+                client=qdrant_client,
+                chunks=chunks,
+                vectors=vectors,
+                user_id=str(document.user_id),
+                document_id=document_id,
+            )
+        finally:
+            qdrant_client.close()
+
+        logger.info(
+            "Document %s: indexed %d chunks in Qdrant",
+            document_id,
+            indexed_count,
         )
 
         # Mark processed only after all stages succeed.
